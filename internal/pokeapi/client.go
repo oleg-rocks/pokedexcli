@@ -35,14 +35,10 @@ func MakeLocationsRequestCtx(ctx context.Context,
 	if configUrl != nil && len(*configUrl) > 0 {
 		targetUrl = *configUrl
 	}
-	cacheResp, ok := cache.Get(targetUrl)
+
+	cachedData, ok := cache.Get(targetUrl)
 	if ok {
-		var locations LocationAreas
-		err := json.Unmarshal(cacheResp, &locations)
-		if err != nil {
-			return nil, err
-		}
-		return &locations, nil
+		return decodedResponse[LocationAreas](cachedData)
 	} else {
 		resp, err := makeRequest(ctx, targetUrl, "GET")
 		if err != nil {
@@ -50,23 +46,9 @@ func MakeLocationsRequestCtx(ctx context.Context,
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			return nil, errBadStatus
-		}
-
-		bytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		cache.Add(targetUrl, bytes)
-
-		var locations LocationAreas
-		err = json.Unmarshal(bytes, &locations)
-		if err != nil {
-			return nil, err
-		}
-		return &locations, nil
+		data, err := getBytesData(resp)
+		cache.Add(targetUrl, data)
+		return decodedResponse[LocationAreas](data)
 	}
 }
 
@@ -74,14 +56,9 @@ func MakeLocationAreaRequestCtx(ctx context.Context,
 	location string) (*LocationAreaResponse, error) {
 	targetUrl := baseUrl + "/" + location
 
-	cacheResp, ok := cache.Get(targetUrl)
+	cachedData, ok := cache.Get(targetUrl)
 	if ok {
-		var locationArea LocationAreaResponse
-		err := json.Unmarshal(cacheResp, &locationArea)
-		if err != nil {
-			return nil, err
-		}
-		return &locationArea, nil
+		return decodedResponse[LocationAreaResponse](cachedData)
 	} else {
 		resp, err := makeRequest(ctx, targetUrl, "GET")
 		if err != nil {
@@ -89,24 +66,31 @@ func MakeLocationAreaRequestCtx(ctx context.Context,
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			return nil, errBadStatus
-		}
-
-		bytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		cache.Add(targetUrl, bytes)
-
-		var locationArea LocationAreaResponse
-		err = json.Unmarshal(bytes, &locationArea)
-		if err != nil {
-			return nil, err
-		}
-		return &locationArea, nil
+		data, err := getBytesData(resp)
+		cache.Add(targetUrl, data)
+		return decodedResponse[LocationAreaResponse](data)
 	}
+}
+
+func decodedResponse[T any](data []byte) (*T, error) {
+	var result T
+	err := json.Unmarshal(data, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func getBytesData(resp *http.Response) ([]byte, error) {
+	if resp.StatusCode != http.StatusOK {
+		return nil, errBadStatus
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func makeRequest(ctx context.Context, url string,
