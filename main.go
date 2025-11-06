@@ -2,14 +2,18 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/oleg-rocks/pokedexcli/internal/pokeapi"
 )
 
 var registry map[string]cliCommand
+var pokedex map[string]Pokemon
 
 func init() {
 	registry = map[string]cliCommand{
@@ -38,7 +42,13 @@ func init() {
 			description: "Displays pokemons for location",
 			callback:    commandExplore,
 		},
+		"catch": {
+			name:        "catch",
+			description: "Catches the pokemon",
+			callback:    commandCatch,
+		},
 	}
+	pokedex = map[string]Pokemon{}
 }
 
 func main() {
@@ -132,12 +142,43 @@ func commandMapb(config *Config, name string) error {
 }
 
 func commandExplore(config *Config, name string) error {
+	if name == "" {
+		return errors.New("Name is empty")
+	}
+
 	fmt.Println("Exploring pastoria-city-area...")
 	resp, err := pokeapi.MakeLocationAreaRequest(name)
 	if err != nil {
 		return err
 	}
 	printPokemonNames(*resp)
+	return nil
+}
+
+func commandCatch(config *Config, name string) error {
+	if name == "" {
+		return errors.New("Name is empty")
+	}
+
+	fmt.Printf("Throwing a Pokeball at %s...\n", name)
+	resp, err := pokeapi.MakePokemonInfoRequest(name)
+	if err != nil {
+		return err
+	}
+
+	exp := resp.BaseExperience
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	n := r.Intn(100)
+	chance := 100 - exp/3
+	if n < chance {
+		fmt.Printf("%s was caught!\n", name)
+		pokedex[name] = Pokemon{
+			name:       name,
+			experience: exp,
+		}
+	} else {
+		fmt.Printf("%s escaped!\n", name)
+	}
 	return nil
 }
 
@@ -153,4 +194,9 @@ func printPokemonNames(resp pokeapi.LocationAreaResponse) {
 	for _, encounter := range encounters {
 		fmt.Printf(" - %s\n", encounter.Pokemon.Name)
 	}
+}
+
+type Pokemon struct {
+	name       string
+	experience int
 }

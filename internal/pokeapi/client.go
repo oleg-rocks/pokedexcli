@@ -11,27 +11,32 @@ import (
 	"github.com/oleg-rocks/pokedexcli/internal/pokecache"
 )
 
-const baseUrl = "https://pokeapi.co/api/v2/location-area"
-
-var httpClient = &http.Client{
-	Timeout: 10 * time.Second,
-}
+const baseUrl = "https://pokeapi.co/api/v2/"
+const locationBaseUrl = "https://pokeapi.co/api/v2/location-area"
 
 var cache = pokecache.NewCache(30 * time.Second)
 
 var errBadStatus = errors.New("pokeapi: unexpected http status code")
 
+var httpClient = &http.Client{
+	Timeout: 10 * time.Second,
+}
+
 func MakeLocationsRequest(configUrl *string) (*LocationAreas, error) {
-	return MakeLocationsRequestCtx(context.Background(), configUrl)
+	return makeLocationsRequestCtx(context.Background(), configUrl)
 }
 
 func MakeLocationAreaRequest(location string) (*LocationAreaResponse, error) {
-	return MakeLocationAreaRequestCtx(context.Background(), location)
+	return makeLocationAreaRequestCtx(context.Background(), location)
 }
 
-func MakeLocationsRequestCtx(ctx context.Context,
+func MakePokemonInfoRequest(name string) (*PokemonInfoResponse, error) {
+	return makePokemonInfoRequestCtx(context.Background(), name)
+}
+
+func makeLocationsRequestCtx(ctx context.Context,
 	configUrl *string) (*LocationAreas, error) {
-	targetUrl := baseUrl
+	targetUrl := locationBaseUrl
 	if configUrl != nil && len(*configUrl) > 0 {
 		targetUrl = *configUrl
 	}
@@ -52,9 +57,9 @@ func MakeLocationsRequestCtx(ctx context.Context,
 	}
 }
 
-func MakeLocationAreaRequestCtx(ctx context.Context,
+func makeLocationAreaRequestCtx(ctx context.Context,
 	location string) (*LocationAreaResponse, error) {
-	targetUrl := baseUrl + "/" + location
+	targetUrl := locationBaseUrl + "/" + location
 
 	cachedData, ok := cache.Get(targetUrl)
 	if ok {
@@ -69,6 +74,26 @@ func MakeLocationAreaRequestCtx(ctx context.Context,
 		data, err := getBytesData(resp)
 		cache.Add(targetUrl, data)
 		return decodedResponse[LocationAreaResponse](data)
+	}
+}
+
+func makePokemonInfoRequestCtx(ctx context.Context,
+	name string) (*PokemonInfoResponse, error) {
+	targetUrl := baseUrl + "pokemon/" + name
+
+	cachedData, ok := cache.Get(targetUrl)
+	if ok {
+		return decodedResponse[PokemonInfoResponse](cachedData)
+	} else {
+		resp, err := makeRequest(ctx, targetUrl, "GET")
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		data, err := getBytesData(resp)
+		cache.Add(targetUrl, data)
+		return decodedResponse[PokemonInfoResponse](data)
 	}
 }
 
