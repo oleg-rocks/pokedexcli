@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -26,6 +25,10 @@ func MakeLocationsRequest(configUrl *string) (*LocationAreas, error) {
 	return MakeLocationsRequestCtx(context.Background(), configUrl)
 }
 
+func MakeLocationAreaRequest(location string) (*LocationAreaResponse, error) {
+	return MakeLocationAreaRequestCtx(context.Background(), location)
+}
+
 func MakeLocationsRequestCtx(ctx context.Context,
 	configUrl *string) (*LocationAreas, error) {
 	targetUrl := baseUrl
@@ -39,10 +42,8 @@ func MakeLocationsRequestCtx(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("...Is reading from cache")
 		return &locations, nil
 	} else {
-		fmt.Println("...Is making api call")
 		resp, err := makeRequest(ctx, targetUrl, "GET")
 		if err != nil {
 			return nil, err
@@ -66,6 +67,45 @@ func MakeLocationsRequestCtx(ctx context.Context,
 			return nil, err
 		}
 		return &locations, nil
+	}
+}
+
+func MakeLocationAreaRequestCtx(ctx context.Context,
+	location string) (*LocationAreaResponse, error) {
+	targetUrl := baseUrl + "/" + location
+
+	cacheResp, ok := cache.Get(targetUrl)
+	if ok {
+		var locationArea LocationAreaResponse
+		err := json.Unmarshal(cacheResp, &locationArea)
+		if err != nil {
+			return nil, err
+		}
+		return &locationArea, nil
+	} else {
+		resp, err := makeRequest(ctx, targetUrl, "GET")
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, errBadStatus
+		}
+
+		bytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		cache.Add(targetUrl, bytes)
+
+		var locationArea LocationAreaResponse
+		err = json.Unmarshal(bytes, &locationArea)
+		if err != nil {
+			return nil, err
+		}
+		return &locationArea, nil
 	}
 }
 

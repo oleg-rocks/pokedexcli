@@ -33,6 +33,11 @@ func init() {
 			description: "Displays previous 20 locations",
 			callback:    commandMapb,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Displays pokemons for location",
+			callback:    commandExplore,
+		},
 	}
 }
 
@@ -44,10 +49,16 @@ func main() {
 		fmt.Print("Pokedox > ")
 		scanner.Scan()
 		input := scanner.Text()
+		inputs := strings.Fields(input)
 		hasCommand := false
 		for key, value := range registry {
-			if input == key {
-				err := value.callback(&config)
+			if inputs[0] == key {
+				var err error
+				if len(inputs) > 1 {
+					err = value.callback(&config, inputs[1])
+				} else {
+					err = value.callback(&config, "")
+				}
 				if err != nil {
 					fmt.Println("Error: ", err)
 				}
@@ -70,7 +81,7 @@ func cleanInput(text string) []string {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(config *Config) error
+	callback    func(config *Config, name string) error
 }
 
 type Config struct {
@@ -78,13 +89,13 @@ type Config struct {
 	Previous *string
 }
 
-func commandExit(config *Config) error {
+func commandExit(config *Config, name string) error {
 	fmt.Print("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(config *Config) error {
+func commandHelp(config *Config, name string) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 
@@ -94,7 +105,7 @@ func commandHelp(config *Config) error {
 	return nil
 }
 
-func commandMap(config *Config) error {
+func commandMap(config *Config, name string) error {
 	resp, err := pokeapi.MakeLocationsRequest(config.Next)
 	if err != nil {
 		return err
@@ -107,7 +118,7 @@ func commandMap(config *Config) error {
 	return nil
 }
 
-func commandMapb(config *Config) error {
+func commandMapb(config *Config, name string) error {
 	resp, err := pokeapi.MakeLocationsRequest(config.Previous)
 	if err != nil {
 		return err
@@ -120,8 +131,26 @@ func commandMapb(config *Config) error {
 	return nil
 }
 
+func commandExplore(config *Config, name string) error {
+	fmt.Println("Exploring pastoria-city-area...")
+	resp, err := pokeapi.MakeLocationAreaRequest(name)
+	if err != nil {
+		return err
+	}
+	printPokemonNames(*resp)
+	return nil
+}
+
 func printAreas(results []pokeapi.LocationAreaResult) {
 	for _, area := range results {
 		fmt.Println(area.Name)
+	}
+}
+
+func printPokemonNames(resp pokeapi.LocationAreaResponse) {
+	fmt.Println("Found Pokemon:")
+	encounters := resp.PokemonEncounters
+	for _, encounter := range encounters {
+		fmt.Printf(" - %s\n", encounter.Pokemon.Name)
 	}
 }
