@@ -52,6 +52,11 @@ func init() {
 			description: "Inspects the pokemon",
 			callback:    commandInspect,
 		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "Displays all caught pokemons",
+			callback:    commandPokedex,
+		},
 	}
 	pokedex = map[string]pokeapi.PokemonDTO{}
 }
@@ -148,7 +153,7 @@ func commandMapb(config *Config, name string) error {
 
 func commandExplore(config *Config, name string) error {
 	if name == "" {
-		return errors.New("Name is empty")
+		return errors.New("name is empty")
 	}
 
 	fmt.Println("Exploring pastoria-city-area...")
@@ -162,7 +167,7 @@ func commandExplore(config *Config, name string) error {
 
 func commandCatch(config *Config, name string) error {
 	if name == "" {
-		return errors.New("Name is empty")
+		return errors.New("name is empty")
 	}
 
 	fmt.Printf("Throwing a Pokeball at %s...\n", name)
@@ -186,7 +191,7 @@ func commandCatch(config *Config, name string) error {
 
 func commandInspect(config *Config, name string) error {
 	if name == "" {
-		return errors.New("Name is empty")
+		return errors.New("name is empty")
 	}
 
 	pokemon, ok := pokedex[name]
@@ -209,6 +214,19 @@ func commandInspect(config *Config, name string) error {
 		for _, t := range pokemon.Types {
 			fmt.Printf("  - %s\n", t.Name)
 		}
+	}
+	return nil
+}
+
+func commandPokedex(config *Config, name string) error {
+	if len(pokedex) == 0 {
+		fmt.Println("Pokedex is empty!")
+		return nil
+	}
+
+	fmt.Println("Your Pokedex:")
+	for _, pokemon := range pokedex {
+		fmt.Printf("  - %s\n", pokemon.Name)
 	}
 	return nil
 }
