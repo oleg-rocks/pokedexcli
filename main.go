@@ -13,7 +13,7 @@ import (
 )
 
 var registry map[string]cliCommand
-var pokedex map[string]Pokemon
+var pokedex map[string]pokeapi.PokemonDTO
 
 func init() {
 	registry = map[string]cliCommand{
@@ -47,8 +47,13 @@ func init() {
 			description: "Catches the pokemon",
 			callback:    commandCatch,
 		},
+		"inspect": {
+			name:        "inspect",
+			description: "Inspects the pokemon",
+			callback:    commandInspect,
+		},
 	}
-	pokedex = map[string]Pokemon{}
+	pokedex = map[string]pokeapi.PokemonDTO{}
 }
 
 func main() {
@@ -172,12 +177,38 @@ func commandCatch(config *Config, name string) error {
 	chance := 100 - exp/3
 	if n < chance {
 		fmt.Printf("%s was caught!\n", name)
-		pokedex[name] = Pokemon{
-			name:       name,
-			experience: exp,
-		}
+		pokedex[name] = resp.ConvertToDTO()
 	} else {
 		fmt.Printf("%s escaped!\n", name)
+	}
+	return nil
+}
+
+func commandInspect(config *Config, name string) error {
+	if name == "" {
+		return errors.New("Name is empty")
+	}
+
+	pokemon, ok := pokedex[name]
+	if !ok {
+		fmt.Println("you have not caught that pokemon")
+		return nil
+	}
+
+	fmt.Printf("Name: %s\n", pokemon.Name)
+	fmt.Printf("Height: %d\n", pokemon.Height)
+	fmt.Printf("Weight: %d\n", pokemon.Weight)
+	if len(pokemon.Stats) > 0 {
+		fmt.Printf("Stats:\n")
+		for _, stat := range pokemon.Stats {
+			fmt.Printf("  -%s: %d\n", stat.Name, stat.Effort)
+		}
+	}
+	if len(pokemon.Types) > 0 {
+		fmt.Printf("Types:\n")
+		for _, t := range pokemon.Types {
+			fmt.Printf("  - %s\n", t.Name)
+		}
 	}
 	return nil
 }
@@ -194,9 +225,4 @@ func printPokemonNames(resp pokeapi.LocationAreaResponse) {
 	for _, encounter := range encounters {
 		fmt.Printf(" - %s\n", encounter.Pokemon.Name)
 	}
-}
-
-type Pokemon struct {
-	name       string
-	experience int
 }
